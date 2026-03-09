@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TaskForge — Kanban</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #f5f2ee;
+      --surface: #ffffff;
+      --border:  #e2ddd7;
+      --text:    #1a1814;
+      --muted:   #9a9590;
+      --accent:  #d4500a;
+      --accent2: #f0a070;
+      --todo:    #3a7bd5;
+      --doing:   #d4500a;
+      --done:    #2a9d5c;
+      --shadow:  0 2px 12px rgba(0,0,0,0.08);
+      --shadow-lg: 0 8px 32px rgba(0,0,0,0.14);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .logo-icon {
+      width: 28px; height: 28px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn {
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: none;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { background: #b83e00; transform: translateY(-1px); box-shadow: var(--shadow); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--bg); color: var(--text); }
+
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .filter-chip {
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      transition: all 0.15s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .filter-chip.active { background: var(--text); color: #fff; border-color: var(--text); }
+    .filter-chip:hover:not(.active) { background: var(--bg); color: var(--text); }
+
+    /* ── BOARD ── */
+    .board-wrap {
+      flex: 1;
+      padding: 28px 32px;
+      overflow-x: auto;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(300px, 1fr));
+      gap: 20px;
+      min-height: calc(100vh - 120px);
+    }
+
+    /* ── COLUMN ── */
+    .column {
+      background: var(--surface);
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      min-height: 400px;
+      transition: box-shadow 0.2s;
+    }
+    .column.drag-over {
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+
+    .col-header {
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .col-title-wrap { display: flex; align-items: center; gap: 10px; }
+    .col-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+    }
+    .col-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .col-count {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+      background: var(--bg);
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+    .col-add {
+      width: 26px; height: 26px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .col-add:hover { background: var(--bg); color: var(--text); border-color: var(--text); }
+
+    .col-cards {
+      flex: 1;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 80px;
+    }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      cursor: grab;
+      transition: box-shadow 0.2s, transform 0.15s;
+      position: relative;
+      animation: cardIn 0.25s ease;
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .card:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
+    .card.dragging { opacity: 0.4; transform: rotate(2deg); }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .card-title {
+      font-size: 0.88rem;
+      font-weight: 500;
+      line-height: 1.4;
+      flex: 1;
+    }
+    .card-menu {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0 2px;
+      line-height: 1;
+      border-radius: 4px;
+      transition: background 0.15s;
+    }
+    .card-menu:hover { background: var(--border); }
+
+    .card-tags {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .card-tag {
+      font-size: 0.65rem;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 999px;
+      letter-spacing: 0.02em;
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-priority {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.62rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .card-priority::before {
+      content: '';
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+    }
+    .prio-alta .card-priority { color: #c0392b; }
+    .prio-alta .card-priority::before { background: #c0392b; }
+    .prio-media .card-priority { color: var(--doing); }
+    .prio-media .card-priority::before { background: var(--doing); }
+    .prio-baixa .card-priority { color: var(--done); }
+    .prio-baixa .card-priority::before { background: var(--done); }
+
+    .card-time {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.62rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* col accent colors */
+    .col-todo .col-dot { background: var(--todo); }
+    .col-doing .col-dot { background: var(--doing); }
+    .col-done .col-dot { background: var(--done); }
+
+    /* tag colors */
+    .tag-design  { background: #fde8df; color: #b8400a; }
+    .tag-dev     { background: #dff0ff; color: #1a5faa; }
+    .tag-bug     { background: #ffe0e0; color: #b02020; }
+    .tag-docs    { background: #e8f5e9; color: #2a7a45; }
+    .tag-api     { background: #ede8ff; color: #5b3fa0; }
+    .tag-test    { background: #fff3e0; color: #9a5a00; }
+    .tag-perf    { background: #e0f7fa; color: #006064; }
+
+    /* ── EMPTY STATE ── */
+    .col-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+      color: var(--muted);
+      text-align: center;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .col-empty svg { opacity: 0.3; }
+    .col-empty span { font-size: 0.8rem; }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(4px);
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--surface);
+      border-radius: 16px;
+      width: min(480px, 92vw);
+      padding: 28px;
+      box-shadow: var(--shadow-lg);
+      transform: scale(0.96) translateY(8px);
+      transition: transform 0.25s cubic-bezier(.22,.68,0,1.2);
+    }
+    .modal-overlay.open .modal { transform: scale(1) translateY(0); }
+    .modal h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+      letter-spacing: -0.01em;
+    }
+    .field { margin-bottom: 14px; }
+    .field label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .field input, .field select, .field textarea {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.88rem;
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus {
+      border-color: var(--accent);
+    }
+    .field textarea { resize: vertical; min-height: 72px; }
+    .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 20px;
+      justify-content: flex-end;
+    }
+
+    /* ── CONTEXT MENU ── */
+    .ctx-menu {
+      position: fixed;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow-lg);
+      padding: 6px;
+      z-index: 600;
+      min-width: 160px;
+      display: none;
+    }
+    .ctx-menu.open { display: block; animation: ctxIn 0.15s ease; }
+    @keyframes ctxIn { from { opacity:0; transform:scale(0.95); } to { opacity:1; transform:scale(1); } }
+    .ctx-item {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.1s;
+    }
+    .ctx-item:hover { background: var(--bg); }
+    .ctx-item.danger { color: #c0392b; }
+    .ctx-item.danger:hover { background: #fff0ee; }
+    .ctx-sep { height: 1px; background: var(--border); margin: 4px 0; }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: 24px; right: 24px;
+      background: var(--text);
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      box-shadow: var(--shadow-lg);
+      z-index: 700;
+      transform: translateY(80px);
+      opacity: 0;
+      transition: transform 0.3s, opacity 0.3s;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+
+    /* ── FOOTER ── */
+    .board-footer {
+      padding: 12px 32px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--muted);
+    }
+
+    @media (max-width: 700px) {
+      .board { grid-template-columns: 1fr; }
+      .board-wrap { padding: 16px; }
+      header { padding: 0 16px; }
+      .filter-bar { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">TF</div>
+      TaskForge
+    </div>
+    <div class="filter-bar">
+      <button class="filter-chip active" data-filter="all">Todas</button>
+      <button class="filter-chip" data-filter="alta">Alta</button>
+      <button class="filter-chip" data-filter="media">Média</button>
+      <button class="filter-chip" data-filter="baixa">Baixa</button>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-ghost" onclick="clearAll()">Limpar tudo</button>
+      <button class="btn btn-primary" onclick="openAddModal()">+ Nova tarefa</button>
+    </div>
+  </header>
+
+  <div class="board-wrap">
+    <div class="board">
+      <div class="column col-todo" id="col-todo" ondragover="onDragOver(event)" ondrop="onDrop(event,'todo')" ondragleave="onDragLeave(event)">
+        <div class="col-header">
+          <div class="col-title-wrap">
+            <div class="col-dot"></div>
+            <span class="col-title">A Fazer</span>
+            <span class="col-count" id="count-todo">0</span>
+          </div>
+          <button class="col-add" onclick="openAddModal('todo')" title="Adicionar tarefa">+</button>
+        </div>
+        <div class="col-cards" id="cards-todo"></div>
+      </div>
+      <div class="column col-doing" id="col-doing" ondragover="onDragOver(event)" ondrop="onDrop(event,'doing')" ondragleave="onDragLeave(event)">
+        <div class="col-header">
+          <div class="col-title-wrap">
+            <div class="col-dot"></div>
+            <span class="col-title">Em Progresso</span>
+            <span class="col-count" id="count-doing">0</span>
+          </div>
+          <button class="col-add" onclick="openAddModal('doing')" title="Adicionar tarefa">+</button>
+        </div>
+        <div class="col-cards" id="cards-doing"></div>
+      </div>
+      <div class="column col-done" id="col-done" ondragover="onDragOver(event)" ondrop="onDrop(event,'done')" ondragleave="onDragLeave(event)">
+        <div class="col-header">
+          <div class="col-title-wrap">
+            <div class="col-dot"></div>
+            <span class="col-title">Concluído</span>
+            <span class="col-count" id="count-done">0</span>
+          </div>
+          <button class="col-add" onclick="openAddModal('done')" title="Adicionar tarefa">+</button>
+        </div>
+        <div class="col-cards" id="cards-done"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="board-footer">
+    <span id="total-label">0 tarefas no total</span>
+    <span>TaskForge v1.0 — dados salvos localmente</span>
+  </div>
+
+  <!-- Add/Edit Modal -->
+  <div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+    <div class="modal">
+      <h3 id="modal-title">Nova Tarefa</h3>
+      <div class="field">
+        <label>Título *</label>
+        <input type="text" id="f-title" placeholder="O que precisa ser feito?"/>
+      </div>
+      <div class="field">
+        <label>Descrição</label>
+        <textarea id="f-desc" placeholder="Detalhes adicionais..."></textarea>
+      </div>
+      <div class="modal-row">
+        <div class="field">
+          <label>Prioridade</label>
+          <select id="f-prio">
+            <option value="media">Média</option>
+            <option value="alta">Alta</option>
+            <option value="baixa">Baixa</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Coluna</label>
+          <select id="f-col">
+            <option value="todo">A Fazer</option>
+            <option value="doing">Em Progresso</option>
+            <option value="done">Concluído</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-row">
+        <div class="field">
+          <label>Tag</label>
+          <select id="f-tag">
+            <option value="">Nenhuma</option>
+            <option value="design">Design</option>
+            <option value="dev">Dev</option>
+            <option value="bug">Bug</option>
+            <option value="docs">Docs</option>
+            <option value="api">API</option>
+            <option value="test">Teste</option>
+            <option value="perf">Performance</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Tempo estimado (h)</label>
+          <input type="number" id="f-time" placeholder="ex: 2" min="0" step="0.5"/>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveCard()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context Menu -->
+  <div class="ctx-menu" id="ctxMenu">
+    <div class="ctx-item" onclick="ctxEdit()">✏️ Editar</div>
+    <div class="ctx-item" onclick="ctxMove('todo')">← Mover para A Fazer</div>
+    <div class="ctx-item" onclick="ctxMove('doing')">⟳ Mover para Em Progresso</div>
+    <div class="ctx-item" onclick="ctxMove('done')">✓ Mover para Concluído</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item danger" onclick="ctxDelete()">🗑 Excluir</div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let tasks = [];
+    let dragId = null;
+    let ctxId = null;
+    let editId = null;
+    let activeFilter = 'all';
+
+    const DEFAULTS = [
+      { id: uid(), title: 'Criar wireframes da homepage', desc: 'Definir layout e hierarquia visual', col: 'todo', prio: 'alta', tag: 'design', time: 3 },
+      { id: uid(), title: 'Configurar rotas da API REST', desc: 'Endpoints para users e products', col: 'todo', prio: 'alta', tag: 'api', time: 4 },
+      { id: uid(), title: 'Escrever testes unitários', desc: 'Cobrir funções críticas de autenticação', col: 'todo', prio: 'media', tag: 'test', time: 2 },
+      { id: uid(), title: 'Implementar modo escuro', desc: 'Variáveis CSS e toggle com localStorage', col: 'doing', prio: 'media', tag: 'dev', time: 2 },
+      { id: uid(), title: 'Corrigir bug no formulário de login', desc: 'Validação falha em e-mails com +', col: 'doing', prio: 'alta', tag: 'bug', time: 1 },
+      { id: uid(), title: 'Otimizar carregamento de imagens', desc: 'Lazy load e formatos modernos', col: 'doing', prio: 'baixa', tag: 'perf', time: 3 },
+      { id: uid(), title: 'Documentar componentes', desc: 'README e comentários JSDoc', col: 'done', prio: 'baixa', tag: 'docs', time: 2 },
+      { id: uid(), title: 'Deploy no ambiente de staging', desc: 'CI/CD configurado no GitHub Actions', col: 'done', prio: 'media', tag: 'dev', time: 1 },
+    ];
+
+    function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+    function load() {
+      const saved = localStorage.getItem('taskforge');
+      tasks = saved ? JSON.parse(saved) : [...DEFAULTS];
+      render();
+    }
+
+    function save() {
+      localStorage.setItem('taskforge', JSON.stringify(tasks));
+    }
+
+    function render() {
+      ['todo','doing','done'].forEach(col => {
+        const container = document.getElementById('cards-' + col);
+        let filtered = tasks.filter(t => t.col === col);
+        if (activeFilter !== 'all') filtered = filtered.filter(t => t.prio === activeFilter);
+
+        container.innerHTML = '';
+        if (filtered.length === 0) {
+          container.innerHTML = `<div class="col-empty">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18"/>
+            </svg>
+            <span>Nenhuma tarefa aqui</span>
+          </div>`;
+        } else {
+          filtered.forEach(t => container.appendChild(makeCard(t)));
+        }
+
+        document.getElementById('count-' + col).textContent = tasks.filter(t => t.col === col).length;
+      });
+      document.getElementById('total-label').textContent = tasks.length + ' tarefa' + (tasks.length !== 1 ? 's' : '') + ' no total';
+    }
+
+    function makeCard(t) {
+      const div = document.createElement('div');
+      div.className = 'card prio-' + t.prio;
+      div.setAttribute('draggable', 'true');
+      div.dataset.id = t.id;
+
+      const tagHtml = t.tag ? `<span class="card-tag tag-${t.tag}">${t.tag}</span>` : '';
+      const timeHtml = t.time ? `<span class="card-time">⏱ ${t.time}h</span>` : '';
+      const prioLabel = { alta: 'Alta', media: 'Média', baixa: 'Baixa' }[t.prio];
+
+      div.innerHTML = `
+        <div class="card-top">
+          <div class="card-title">${t.title}</div>
+          <button class="card-menu" data-id="${t.id}">⋯</button>
+        </div>
+        ${t.tag ? `<div class="card-tags">${tagHtml}</div>` : ''}
+        <div class="card-footer">
+          <span class="card-priority">${prioLabel}</span>
+          ${timeHtml}
+        </div>`;
+
+      div.addEventListener('dragstart', e => { dragId = t.id; div.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+      div.addEventListener('dragend', () => { dragId = null; div.classList.remove('dragging'); });
+      div.querySelector('.card-menu').addEventListener('click', e => { e.stopPropagation(); openCtxMenu(e, t.id); });
+      return div;
+    }
+
+    // Drag & Drop
+    function onDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+    function onDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+    function onDrop(e, col) {
+      e.preventDefault();
+      e.currentTarget.classList.remove('drag-over');
+      if (!dragId) return;
+      const t = tasks.find(x => x.id === dragId);
+      if (t && t.col !== col) { t.col = col; save(); render(); showToast('Tarefa movida!'); }
+    }
+
+    // Modal
+    function openAddModal(col) {
+      editId = null;
+      document.getElementById('modal-title').textContent = 'Nova Tarefa';
+      document.getElementById('f-title').value = '';
+      document.getElementById('f-desc').value = '';
+      document.getElementById('f-prio').value = 'media';
+      document.getElementById('f-col').value = col || 'todo';
+      document.getElementById('f-tag').value = '';
+      document.getElementById('f-time').value = '';
+      document.getElementById('modalOverlay').classList.add('open');
+      setTimeout(() => document.getElementById('f-title').focus(), 200);
+    }
+
+    function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+    function handleOverlayClick(e) { if (e.target.id === 'modalOverlay') closeModal(); }
+
+    function saveCard() {
+      const title = document.getElementById('f-title').value.trim();
+      if (!title) { document.getElementById('f-title').focus(); return; }
+      if (editId) {
+        const t = tasks.find(x => x.id === editId);
+        t.title = title;
+        t.desc = document.getElementById('f-desc').value.trim();
+        t.prio = document.getElementById('f-prio').value;
+        t.col = document.getElementById('f-col').value;
+        t.tag = document.getElementById('f-tag').value;
+        t.time = parseFloat(document.getElementById('f-time').value) || 0;
+        showToast('Tarefa atualizada!');
+      } else {
+        tasks.push({ id: uid(), title, desc: document.getElementById('f-desc').value.trim(), prio: document.getElementById('f-prio').value, col: document.getElementById('f-col').value, tag: document.getElementById('f-tag').value, time: parseFloat(document.getElementById('f-time').value) || 0 });
+        showToast('Tarefa criada!');
+      }
+      save(); render(); closeModal();
+    }
+
+    // Context menu
+    function openCtxMenu(e, id) {
+      ctxId = id;
+      const menu = document.getElementById('ctxMenu');
+      menu.style.left = Math.min(e.clientX, window.innerWidth - 180) + 'px';
+      menu.style.top = Math.min(e.clientY, window.innerHeight - 220) + 'px';
+      menu.classList.add('open');
+    }
+    function closeCtxMenu() { document.getElementById('ctxMenu').classList.remove('open'); }
+    document.addEventListener('click', closeCtxMenu);
+
+    function ctxEdit() {
+      const t = tasks.find(x => x.id === ctxId);
+      if (!t) return;
+      editId = t.id;
+      document.getElementById('modal-title').textContent = 'Editar Tarefa';
+      document.getElementById('f-title').value = t.title;
+      document.getElementById('f-desc').value = t.desc || '';
+      document.getElementById('f-prio').value = t.prio;
+      document.getElementById('f-col').value = t.col;
+      document.getElementById('f-tag').value = t.tag || '';
+      document.getElementById('f-time').value = t.time || '';
+      document.getElementById('modalOverlay').classList.add('open');
+    }
+
+    function ctxMove(col) {
+      const t = tasks.find(x => x.id === ctxId);
+      if (t) { t.col = col; save(); render(); showToast('Tarefa movida!'); }
+    }
+
+    function ctxDelete() {
+      tasks = tasks.filter(x => x.id !== ctxId);
+      save(); render(); showToast('Tarefa excluída.');
+    }
+
+    function clearAll() {
+      if (confirm('Tem certeza? Todas as tarefas serão removidas.')) {
+        tasks = []; save(); render(); showToast('Quadro limpo!');
+      }
+    }
+
+    // Filter
+    document.querySelectorAll('.filter-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeFilter = btn.dataset.filter;
+        render();
+      });
+    });
+
+    // Keyboard
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { closeModal(); closeCtxMenu(); }
+      if (e.key === 'Enter' && document.getElementById('modalOverlay').classList.contains('open')) saveCard();
+      if (e.key === 'n' && !document.getElementById('modalOverlay').classList.contains('open')) openAddModal();
+    });
+
+    // Toast
+    let toastTimer;
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg; t.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    load();
+  </script>
+</body>
+</html>
